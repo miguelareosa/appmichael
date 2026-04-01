@@ -1,0 +1,1421 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Stock Bodega</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --bg: #f0ede8; --surface: #faf9f7; --surface2: #f0ede8;
+      --border: #e0dbd2; --border2: #ccc7bc; --text: #1a1916;
+      --text2: #6b6760; --text3: #9e9b95; --accent: #1a4f3a;
+      --accent-light: #e8f0ec; --accent-hover: #153d2d;
+      --danger: #c0392b; --danger-light: #fdf0ef;
+      --info: #1a5f8a; --info-light: #e8f3fb;
+      --tag-bg: #e8f0ec; --tag-text: #1a4f3a;
+      --shadow: 0 1px 3px rgba(0,0,0,0.07), 0 4px 12px rgba(0,0,0,0.05);
+      --shadow-lg: 0 8px 32px rgba(0,0,0,0.10);
+      --radius: 10px; --radius-sm: 6px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; }
+
+    /* ── LOADING OVERLAY ── */
+    #app-loader {
+      position: fixed; inset: 0; background: var(--accent);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      z-index: 9999; gap: 16px; transition: opacity 0.4s;
+    }
+    #app-loader.hidden { opacity: 0; pointer-events: none; }
+    #app-loader svg { opacity: 0.8; }
+    #app-loader p { color: rgba(255,255,255,0.8); font-size: 13px; font-family: 'DM Mono', monospace; }
+    .loader-spin { width: 32px; height: 32px; border: 3px solid rgba(255,255,255,0.2); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── GITHUB CONFIG MODAL ── */
+    #gh-config-modal {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      display: flex; align-items: center; justify-content: center; z-index: 8000;
+    }
+    #gh-config-modal.hidden { display: none; }
+    .gh-config-box {
+      background: var(--surface); border-radius: var(--radius);
+      padding: 32px; max-width: 440px; width: 90%; box-shadow: var(--shadow-lg);
+    }
+    .gh-config-box h2 { font-size: 16px; font-weight: 600; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+    .gh-config-box p { font-size: 12.5px; color: var(--text2); margin-bottom: 20px; line-height: 1.6; }
+    .gh-config-box .form-group { margin-bottom: 14px; }
+    .gh-config-box label { font-size: 11.5px; font-weight: 500; color: var(--text2); display: block; margin-bottom: 5px; }
+    .gh-config-note { font-size: 11px; color: var(--text3); margin-top: 12px; line-height: 1.6; }
+    .gh-config-note a { color: var(--accent); }
+
+    /* ── SYNC STATUS BAR ── */
+    #sync-bar {
+      background: var(--info-light); border-bottom: 1px solid #c5dff0;
+      padding: 6px 32px; display: flex; align-items: center; gap: 10px;
+      font-size: 12px; color: var(--info); min-height: 30px;
+    }
+    #sync-bar.syncing { background: #fff8e1; border-color: #ffe082; color: #7d5a00; }
+    #sync-bar.error   { background: var(--danger-light); border-color: #f5c6c2; color: var(--danger); }
+    #sync-bar.success { background: var(--accent-light); border-color: #b2d4c2; color: var(--accent); }
+    .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; display: inline-block; flex-shrink: 0; }
+    .sync-dot.pulse { animation: pulse 1.2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    #sync-bar button.btn-gh-config { margin-left: auto; height: 26px; padding: 0 10px; background: none; border: 1px solid currentColor; border-radius: 4px; font-size: 11px; color: inherit; cursor: pointer; font-family: 'DM Sans', sans-serif; opacity: 0.8; }
+    #sync-bar button.btn-gh-config:hover { opacity: 1; }
+
+    /* ── HEADER ── */
+    .header { background: var(--accent); color: white; padding: 0 32px; height: 56px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+    .header-left { display: flex; align-items: center; gap: 12px; }
+    .header-icon { width: 32px; height: 32px; background: rgba(255,255,255,0.15); border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+    .header h1 { font-size: 16px; font-weight: 600; letter-spacing: 0.02em; }
+    .header-right { font-size: 12px; color: rgba(255,255,255,0.6); font-family: 'DM Mono', monospace; }
+
+    /* ── NAV TABS ── */
+    .nav-tabs { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 32px; display: flex; }
+    .nav-tab { display: flex; align-items: center; gap: 7px; padding: 0 20px; height: 44px; font-size: 13px; font-weight: 500; color: var(--text3); border: none; background: none; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 0.15s, border-color 0.15s; white-space: nowrap; }
+    .nav-tab:hover { color: var(--text2); }
+    .nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab-badge { background: var(--accent-light); color: var(--accent); font-size: 10px; font-weight: 600; font-family: 'DM Mono', monospace; padding: 1px 6px; border-radius: 10px; }
+
+    /* ── PAGES ── */
+    .page { display: none; }
+    .page.active { display: block; }
+    .container { max-width: 1300px; margin: 0 auto; padding: 32px 24px 64px; }
+
+    /* ── SECTION LABEL ── */
+    .section-label { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    /* ── CARD ── */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 24px; margin-bottom: 20px; }
+
+    /* ── FORM GRID ── */
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 14px; margin-bottom: 18px; }
+    .form-group { display: flex; flex-direction: column; gap: 5px; }
+    .form-group label { font-size: 11.5px; font-weight: 500; color: var(--text2); letter-spacing: 0.03em; }
+    .form-group .required { color: var(--accent); }
+    .form-divider { grid-column: 1 / -1; border: none; border-top: 1px dashed var(--border2); margin: 4px 0; }
+    .form-sub { grid-column: 1 / -1; font-size: 10.5px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: var(--text3); margin-top: 4px; }
+
+    select, input[type="number"], input[type="text"], input[type="password"] {
+      width: 100%; height: 38px; padding: 0 10px;
+      border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+      background: white; font-family: 'DM Sans', sans-serif; font-size: 13.5px; color: var(--text);
+      outline: none; transition: border-color 0.15s, box-shadow 0.15s; appearance: none;
+    }
+    select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b6760' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px; }
+    select:focus, input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(26,79,58,0.1); }
+    select:disabled, input:disabled { background: var(--surface2); color: var(--text3); cursor: not-allowed; }
+    input::placeholder { color: var(--text3); }
+
+    .display-field { height: 38px; padding: 0 10px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); background: var(--surface2); display: flex; align-items: center; font-family: 'DM Mono', monospace; font-size: 12.5px; }
+    .display-field.empty { color: var(--text3); font-family: 'DM Sans', sans-serif; font-style: italic; }
+    .display-field .tag { background: var(--tag-bg); color: var(--tag-text); font-size: 11.5px; font-weight: 500; padding: 2px 8px; border-radius: 4px; font-family: 'DM Sans', sans-serif; font-style: normal; }
+
+    .field-error { font-size: 11px; color: var(--danger); display: none; margin-top: 1px; }
+    .form-group.has-error select, .form-group.has-error input { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(192,57,43,0.08); }
+    .form-group.has-error .field-error { display: block; }
+
+    .form-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .form-hint { font-size: 12px; color: var(--text3); }
+
+    .btn-primary { height: 38px; padding: 0 22px; background: var(--accent); color: white; border: none; border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: 13.5px; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; transition: background 0.15s, transform 0.1s; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-primary:active { transform: scale(0.98); }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    .btn-secondary { height: 38px; padding: 0 16px; background: white; color: var(--text2); border: 1.5px solid var(--border); border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; transition: background 0.15s, border-color 0.15s; }
+    .btn-secondary:hover { background: var(--surface2); border-color: var(--border2); }
+
+    .upload-zone { border: 2px dashed var(--border2); border-radius: var(--radius); padding: 28px 24px; text-align: center; cursor: pointer; transition: border-color 0.2s, background 0.2s; background: var(--surface); position: relative; }
+    .upload-zone:hover, .upload-zone.drag-over { border-color: var(--accent); background: var(--accent-light); }
+    .upload-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .upload-zone-icon { width: 44px; height: 44px; background: var(--accent-light); border-radius: 10px; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; }
+    .upload-zone h3 { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+    .upload-zone p { font-size: 12px; color: var(--text3); }
+    .upload-zone .upload-hint { display: inline-block; margin-top: 8px; font-size: 11px; font-family: 'DM Mono', monospace; color: var(--accent); background: var(--accent-light); padding: 3px 10px; border-radius: 4px; }
+
+    .preview-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 20px; overflow: hidden; }
+    .preview-header { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .preview-header h3 { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+    .preview-info { font-size: 12px; color: var(--text3); font-family: 'DM Mono', monospace; }
+    .preview-actions { display: flex; gap: 8px; align-items: center; }
+    .import-count { font-size: 12px; font-weight: 600; color: var(--accent); background: var(--accent-light); padding: 3px 10px; border-radius: 4px; font-family: 'DM Mono', monospace; }
+
+    .import-bodega-row { padding: 12px 20px; background: var(--info-light); border-bottom: 1px solid #c5dff0; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .import-bodega-row label { font-size: 12px; font-weight: 600; color: var(--info); white-space: nowrap; }
+    .import-bodega-row select { width: 220px; height: 34px; font-size: 13px; }
+    .import-bodega-row .import-bodega-hint { font-size: 11.5px; color: var(--info); opacity: 0.8; }
+
+    .preview-scroll { overflow-x: auto; max-height: 320px; overflow-y: auto; }
+    .preview-scroll table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .preview-scroll thead { position: sticky; top: 0; z-index: 2; }
+    .preview-scroll thead th { background: #f5f3ef; padding: 8px 12px; text-align: left; font-size: 10.5px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text3); white-space: nowrap; border-bottom: 1.5px solid var(--border2); }
+    .preview-scroll tbody tr { border-bottom: 1px solid var(--border); }
+    .preview-scroll tbody tr:hover { background: var(--accent-light); }
+    .preview-scroll tbody td { padding: 7px 12px; vertical-align: middle; white-space: nowrap; color: var(--text); }
+    .preview-scroll tbody td.td-ref { font-family: 'DM Mono', monospace; font-weight: 500; color: var(--accent); font-size: 11.5px; }
+    .preview-scroll tbody td.td-num { font-family: 'DM Mono', monospace; font-size: 11.5px; text-align: right; }
+    .row-status { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 500; padding: 2px 6px; border-radius: 3px; }
+    .row-status.ok { background: var(--tag-bg); color: var(--tag-text); }
+    .row-status.warn { background: #fff3cd; color: #7d5a00; }
+
+    #toast { position: fixed; bottom: 24px; right: 24px; background: var(--text); color: white; padding: 12px 20px; border-radius: var(--radius-sm); font-size: 13px; box-shadow: var(--shadow-lg); transform: translateY(80px); opacity: 0; transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1); z-index: 999; display: flex; align-items: center; gap: 8px; max-width: 340px; }
+    #toast.show { transform: translateY(0); opacity: 1; }
+    #toast.success { background: var(--accent); }
+    #toast.error { background: var(--danger); }
+
+    .table-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
+    .record-count { font-size: 12px; font-family: 'DM Mono', monospace; color: var(--text3); background: var(--surface2); border: 1px solid var(--border); padding: 3px 10px; border-radius: 20px; }
+    .filter-input { height: 34px; padding: 0 10px 0 30px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); background: white url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='%239e9b95' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E") no-repeat 9px center; font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--text); outline: none; width: 200px; transition: border-color 0.15s; appearance: none; }
+    .filter-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(26,79,58,0.1); }
+
+    .table-wrap { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow); }
+    table { width: 100%; border-collapse: collapse; background: var(--surface); }
+    thead tr { background: var(--surface2); border-bottom: 2px solid var(--border2); }
+    thead th { padding: 9px 12px; text-align: left; font-size: 10.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text3); white-space: nowrap; }
+    tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--accent-light); }
+    tbody td { padding: 10px 12px; font-size: 13px; vertical-align: middle; }
+
+    .td-ref { font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 500; color: var(--accent); }
+    .td-tag { display: inline-flex; align-items: center; font-size: 11.5px; font-weight: 500; color: var(--tag-text); background: var(--tag-bg); padding: 2px 7px; border-radius: 4px; }
+    .td-chip { background: var(--surface2); padding: 2px 7px; border-radius: 4px; font-size: 11.5px; color: var(--text2); display: inline-block; white-space: nowrap; }
+    .td-chip-blue { background: #e8f3fb; color: #1a5f8a; padding: 2px 7px; border-radius: 4px; font-size: 11.5px; display: inline-block; white-space: nowrap; }
+    .td-qty { font-family: 'DM Mono', monospace; font-weight: 600; font-size: 13.5px; }
+    .td-date { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text3); white-space: nowrap; }
+    .td-num { font-family: 'DM Mono', monospace; font-size: 11.5px; color: var(--text2); }
+    .td-bl { font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 600; color: var(--info); background: var(--info-light); padding: 2px 6px; border-radius: 3px; display: inline-block; }
+
+    .btn-del { background: none; border: none; cursor: pointer; color: var(--text3); padding: 4px; border-radius: 4px; display: flex; align-items: center; transition: color 0.15s, background 0.15s; }
+    .btn-del:hover { color: var(--danger); background: rgba(192,57,43,0.08); }
+
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; z-index: 500; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-lg); padding: 28px; max-width: 400px; width: 90%; transform: scale(0.95) translateY(8px); transition: transform 0.2s; }
+    .modal-overlay.open .modal { transform: scale(1) translateY(0); }
+    .modal h3 { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+    .modal p { font-size: 13px; color: var(--text2); margin-bottom: 20px; line-height: 1.6; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+    .tipo-builtin { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; }
+    .tipo-manual { font-size: 11px; color: var(--accent); font-family: 'DM Mono', monospace; background: var(--accent-light); padding: 2px 6px; border-radius: 3px; }
+
+    .tr-row-select { cursor: pointer; }
+    .tr-row-select:hover { background: var(--accent-light) !important; }
+    .tr-row-select.selected { background: #e8f0ec !important; outline: 2px solid var(--accent); outline-offset: -2px; }
+    .tr-radio { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+    .tr-arrow { display: inline-flex; align-items: center; justify-content: center; color: #7c5c1e; font-size: 16px; }
+    .tr-bodega-from { background: #fff3e0; color: #7c5c1e; padding: 2px 8px; border-radius: 4px; font-size: 11.5px; font-weight: 600; display: inline-block; }
+    .tr-bodega-to   { background: var(--accent-light); color: var(--accent); padding: 2px 8px; border-radius: 4px; font-size: 11.5px; font-weight: 600; display: inline-block; }
+    .tr-summary-item { display: flex; flex-direction: column; gap: 2px; }
+    .tr-summary-label { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); opacity: 0.7; }
+    .tr-summary-value { font-size: 13px; font-weight: 600; color: var(--accent); }
+
+    .empty-state { padding: 52px 0; text-align: center; }
+    .empty-state svg { opacity: 0.18; margin-bottom: 12px; display: block; margin-left: auto; margin-right: auto; }
+    .empty-state p { color: var(--text3); font-size: 13px; }
+
+    @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+    .new-row { animation: fadeSlideIn 0.28s ease; }
+
+    .dash-filters { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; margin-bottom: 24px; }
+    .dash-kpi-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; margin-bottom: 28px; }
+    .kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow); }
+    .kpi-card .kpi-label { font-size: 10.5px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: var(--text3); margin-bottom: 6px; }
+    .kpi-card .kpi-value { font-size: 28px; font-weight: 600; font-family: 'DM Mono', monospace; color: var(--accent); line-height: 1; }
+    .kpi-card .kpi-sub   { font-size: 11px; color: var(--text3); margin-top: 4px; }
+    .kpi-card.kpi-accent { background: var(--accent); border-color: var(--accent); }
+    .kpi-card.kpi-accent .kpi-label { color: rgba(255,255,255,0.65); }
+    .kpi-card.kpi-accent .kpi-value { color: white; }
+    .kpi-card.kpi-accent .kpi-sub   { color: rgba(255,255,255,0.5); }
+    .dash-bar-wrap { margin-bottom: 6px; }
+    .dash-bar-track { height: 6px; background: var(--border); border-radius: 4px; overflow: hidden; margin-top: 6px; }
+    .dash-bar-fill  { height: 100%; background: var(--accent); border-radius: 4px; transition: width 0.4s ease; }
+    .dash-section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
+    .btn-clear-filters { height: 32px; padding: 0 12px; background: none; color: var(--text3); border: 1px solid var(--border); border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.15s; }
+    .btn-clear-filters:hover { color: var(--danger); border-color: var(--danger); background: var(--danger-light); }
+
+    @media (max-width: 700px) {
+      .container { padding: 14px 10px 48px; }
+      .header, .nav-tabs, #sync-bar { padding-left: 14px; padding-right: 14px; }
+      .filter-input { width: 130px; }
+      .nav-tab { padding: 0 10px; font-size: 12px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- LOADING OVERLAY -->
+<div id="app-loader">
+  <div class="loader-spin"></div>
+  <p id="loader-text">Conectando con GitHub…</p>
+</div>
+
+<!-- GITHUB CONFIG MODAL -->
+<div id="gh-config-modal" class="hidden">
+  <div class="gh-config-box">
+    <h2>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+      Configurar GitHub
+    </h2>
+    <p>Esta app guarda todos los datos en tu repositorio de GitHub como archivos JSON. Ingresa tus credenciales para continuar.</p>
+    <div class="form-group">
+      <label>Usuario de GitHub</label>
+      <input type="text" id="gh-user" placeholder="ej: miguelareosa"/>
+    </div>
+    <div class="form-group">
+      <label>Nombre del repositorio</label>
+      <input type="text" id="gh-repo" placeholder="ej: appmichael"/>
+    </div>
+    <div class="form-group">
+      <label>Token de acceso personal (PAT)</label>
+      <input type="password" id="gh-token" placeholder="ghp_…"/>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
+      <button class="btn-primary" id="btn-gh-save">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+        Guardar y conectar
+      </button>
+    </div>
+    <p class="gh-config-note">Tu token necesita permiso <strong>repo</strong> (Contents: read & write). Se guarda solo en este navegador (localStorage). <a href="https://github.com/settings/tokens/new" target="_blank">Crear token →</a></p>
+  </div>
+</div>
+
+<!-- SYNC STATUS BAR -->
+<div id="sync-bar">
+  <span class="sync-dot pulse" id="sync-dot"></span>
+  <span id="sync-text">Cargando datos…</span>
+  <button class="btn-gh-config" onclick="openGhConfig()">⚙ GitHub</button>
+</div>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-left">
+    <div class="header-icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+      </svg>
+    </div>
+    <h1>Stock Bodega</h1>
+  </div>
+  <div class="header-right" id="headerDate"></div>
+</header>
+
+<!-- NAV TABS -->
+<nav class="nav-tabs">
+  <button class="nav-tab" data-tab="dashboard" onclick="switchTab('dashboard')">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+    Dashboard
+  </button>
+  <button class="nav-tab active" data-tab="stock" onclick="switchTab('stock')">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+    Stock Bodega <span class="tab-badge" id="badge-stock">0</span>
+  </button>
+  <button class="nav-tab" data-tab="traslados" onclick="switchTab('traslados')">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+    Traslados <span class="tab-badge" id="badge-traslados">0</span>
+  </button>
+  <button class="nav-tab" data-tab="referencias" onclick="switchTab('referencias')">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+    Referencias <span class="tab-badge" id="badge-ref">0</span>
+  </button>
+</nav>
+
+<!-- ══ PAGE: DASHBOARD ══ -->
+<div class="page" id="page-dashboard">
+  <div class="container">
+    <div class="dash-kpi-row">
+      <div class="kpi-card kpi-accent">
+        <div class="kpi-label">Total unidades en stock</div>
+        <div class="kpi-value" id="kpi-total-qty">0</div>
+        <div class="kpi-sub" id="kpi-total-sub">en todas las bodegas</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Referencias activas</div>
+        <div class="kpi-value" id="kpi-refs">0</div>
+        <div class="kpi-sub">con stock disponible</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Bodegas con stock</div>
+        <div class="kpi-value" id="kpi-bodegas">0</div>
+        <div class="kpi-sub">ubicaciones activas</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Traslados realizados</div>
+        <div class="kpi-value" id="kpi-traslados">0</div>
+        <div class="kpi-sub">movimientos totales</div>
+      </div>
+    </div>
+    <div class="section-label">Filtros</div>
+    <div class="card" style="padding:18px 20px;margin-bottom:20px">
+      <div class="dash-filters">
+        <div class="form-group"><label>#BL</label><select id="dash-filter-bl"><option value="">Todos los BL</option></select></div>
+        <div class="form-group"><label>Referencia</label><select id="dash-filter-ref"><option value="">Todas las referencias</option></select></div>
+        <div class="form-group"><label>Bodega</label><select id="dash-filter-bodega"><option value="">Todas las bodegas</option></select></div>
+        <div class="form-group" style="justify-content:flex-end;padding-top:18px">
+          <button class="btn-clear-filters" id="btn-dash-clear">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            Limpiar filtros
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="dash-section-header">
+      <div class="section-label" style="margin-bottom:0;flex:1">Stock por Referencia y Bodega</div>
+      <span class="record-count" id="dash-row-count">0 filas</span>
+    </div>
+    <div class="table-wrap" style="margin-bottom:32px">
+      <table>
+        <thead><tr><th>#BL</th><th>Referencia</th><th>Item</th><th>Proveedor</th><th>Unidad</th><th>Bodega</th><th style="text-align:right">Qty Total</th><th style="width:160px">Distribución</th></tr></thead>
+        <tbody id="dash-table-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE: STOCK BODEGA ══ -->
+<div class="page active" id="page-stock">
+  <div class="container">
+    <div class="section-label">Registrar movimiento manualmente</div>
+    <div class="card">
+      <div class="form-grid">
+        <div class="form-sub">Datos del producto</div>
+        <div class="form-group" id="grp-referencia">
+          <label>Referencia <span class="required">*</span></label>
+          <select id="sel-referencia"><option value="">— Seleccionar —</option></select>
+          <span class="field-error">Selecciona una referencia</span>
+        </div>
+        <div class="form-group"><label>Item</label><div class="display-field empty" id="disp-items">Sin selección</div></div>
+        <div class="form-group"><label>Proveedor</label><div class="display-field empty" id="disp-proveedor">Sin selección</div></div>
+        <div class="form-group"><label>Unidad de Medida</label><div class="display-field empty" id="disp-unidad">Sin selección</div></div>
+        <hr class="form-divider"/>
+        <div class="form-sub">Logística y embarque</div>
+        <div class="form-group" id="grp-bl">
+          <label>#BL <span class="required">*</span></label>
+          <input type="text" id="inp-bl" placeholder="Ej: MSKU1234567"/>
+          <span class="field-error">El #BL es obligatorio</span>
+        </div>
+        <div class="form-group" id="grp-bodega">
+          <label>Bodega <span class="required">*</span></label>
+          <select id="sel-bodega"><option value="">— Seleccionar —</option></select>
+          <span class="field-error">Selecciona una bodega</span>
+        </div>
+        <div class="form-group" id="grp-qty">
+          <label>Cantidad <span class="required">*</span></label>
+          <input type="number" id="inp-qty" min="1" placeholder="0"/>
+          <span class="field-error">Debe ser mayor a 0</span>
+        </div>
+      </div>
+      <div class="form-footer">
+        <span class="form-hint">Item, Proveedor y Unidad se llenan automáticamente desde la referencia.</span>
+        <button class="btn-primary" id="btn-guardar">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+          Guardar
+        </button>
+      </div>
+    </div>
+
+    <div class="section-label">Importar desde Excel (factura)</div>
+    <div class="upload-zone" id="upload-zone">
+      <input type="file" id="file-input" accept=".xlsx,.xls"/>
+      <div class="upload-zone-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+      </div>
+      <h3>Arrastra tu archivo Excel aquí</h3>
+      <p>o haz clic para seleccionarlo desde tu computador</p>
+      <span class="upload-hint">Headers en fila 12 · Columnas: #BL, SUPPLIER, REFERENCE, NAME, QUANTITY, UNIT OF MEASUREMENT</span>
+    </div>
+
+    <div id="preview-section" style="display:none">
+      <div class="preview-card">
+        <div class="preview-header">
+          <h3>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <span id="preview-filename">archivo.xlsx</span>
+          </h3>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <span class="preview-info" id="preview-info">0 filas leídas</span>
+            <span class="import-count" id="import-count">0 registros</span>
+          </div>
+        </div>
+        <div class="import-bodega-row">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--info)" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          <label for="import-bodega">Bodega destino para todos los registros:</label>
+          <select id="import-bodega"><option value="">— Seleccionar bodega —</option></select>
+          <span class="import-bodega-hint">Obligatorio para importar</span>
+        </div>
+        <div class="preview-scroll">
+          <table>
+            <thead><tr><th>#BL</th><th>Supplier</th><th>Referencia</th><th>Nombre</th><th>Qty</th><th>Unidad</th><th>Estado</th></tr></thead>
+            <tbody id="preview-body"></tbody>
+          </table>
+        </div>
+        <div class="preview-header" style="border-top:1px solid var(--border);border-bottom:none;padding-top:12px;padding-bottom:12px">
+          <div class="preview-actions">
+            <button class="btn-secondary" id="btn-cancel-import">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              Cancelar
+            </button>
+            <button class="btn-primary" id="btn-confirm-import">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+              Confirmar importación
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-header">
+      <div class="section-label" style="margin-bottom:0;flex:1">Inventario registrado</div>
+      <span class="record-count" id="record-count">0 registros</span>
+      <input class="filter-input" id="filter-input" type="text" placeholder="Buscar..."/>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#BL</th><th>Referencia</th><th>Item</th><th>Proveedor</th><th>Unidad</th><th>Bodega</th><th style="text-align:right">Qty</th><th>Fecha</th><th></th></tr></thead>
+        <tbody id="table-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE: TRASLADOS ══ -->
+<div class="page" id="page-traslados">
+  <div class="container">
+    <div class="section-label">Seleccionar ítem a trasladar</div>
+    <div class="table-header">
+      <div style="flex:1"></div>
+      <input class="filter-input" id="tr-filter-input" type="text" placeholder="Buscar en inventario..."/>
+    </div>
+    <div class="table-wrap" style="margin-bottom:24px">
+      <table>
+        <thead><tr><th style="width:36px"></th><th>#BL</th><th>Referencia</th><th>Item</th><th>Proveedor</th><th>Unidad</th><th>Bodega actual</th><th style="text-align:right">Stock disponible</th></tr></thead>
+        <tbody id="tr-stock-body"></tbody>
+      </table>
+    </div>
+    <div id="tr-form-section" style="display:none">
+      <div class="section-label">Configurar traslado</div>
+      <div class="card" style="border-color:var(--accent);border-width:1.5px">
+        <div id="tr-selected-summary" style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;padding:12px 16px;background:var(--accent-light);border-radius:var(--radius-sm);margin-bottom:20px"></div>
+        <div class="form-grid">
+          <div class="form-group" id="trgrp-bodega-dest">
+            <label>Bodega destino <span class="required">*</span></label>
+            <select id="tr-sel-bodega-dest"><option value="">— Seleccionar —</option></select>
+            <span class="field-error">Selecciona una bodega destino</span>
+          </div>
+          <div class="form-group" id="trgrp-qty">
+            <label>Cantidad a trasladar <span class="required">*</span></label>
+            <input type="number" id="tr-inp-qty" min="1" placeholder="0"/>
+            <span class="field-error" id="tr-qty-error">Cantidad inválida</span>
+          </div>
+          <div class="form-group">
+            <label>Nota (opcional)</label>
+            <input type="text" id="tr-inp-nota" placeholder="Ej: Reubicación por inventario"/>
+          </div>
+        </div>
+        <div class="form-footer">
+          <button class="btn-secondary" id="btn-tr-cancel">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            Cancelar selección
+          </button>
+          <button class="btn-primary" id="btn-tr-confirmar" style="background:#7c5c1e">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+            Confirmar traslado
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="table-header" style="margin-top:32px">
+      <div class="section-label" style="margin-bottom:0;flex:1">Historial de traslados</div>
+      <span class="record-count" id="tr-count">0 traslados</span>
+      <input class="filter-input" id="tr-log-filter" type="text" placeholder="Buscar..."/>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Fecha</th><th>Referencia</th><th>Item</th><th>Origen</th><th></th><th>Destino</th><th style="text-align:right">Qty</th><th>Nota</th><th></th></tr></thead>
+        <tbody id="tr-log-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE: REFERENCIAS ══ -->
+<div class="page" id="page-referencias">
+  <div class="container">
+    <div class="section-label">Catálogo de referencias — solo lectura (fuente: referencias.json)</div>
+    <div class="card" style="background:var(--info-light);border-color:#c5dff0;padding:14px 20px;margin-bottom:20px">
+      <span style="font-size:12.5px;color:var(--info)">
+        <strong>Las referencias se leen desde <code>referencias.json</code> en el repositorio.</strong>
+        Para añadir o editar referencias, modifica ese archivo directamente en GitHub.
+      </span>
+    </div>
+    <div class="table-header">
+      <div class="section-label" style="margin-bottom:0;flex:1">Catálogo de referencias</div>
+      <span class="record-count" id="ref-count">0 referencias</span>
+      <input class="filter-input" id="ref-filter" type="text" placeholder="Buscar..."/>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>Referencia</th><th>Item</th><th>Proveedor</th><th>Unidad</th></tr></thead>
+        <tbody id="ref-table-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM DELETE MODAL -->
+<div class="modal-overlay" id="confirm-modal">
+  <div class="modal">
+    <h3 id="modal-title">¿Eliminar?</h3>
+    <p id="modal-body">Esta acción no se puede deshacer.</p>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+      <button class="btn-primary" id="modal-confirm" style="background:var(--danger)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        Eliminar
+      </button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// GITHUB BACKEND
+// ═══════════════════════════════════════════════════════════
+const GH_CFG_KEY = "sbv3_gh_config";
+
+function getGhConfig() {
+  try { return JSON.parse(localStorage.getItem(GH_CFG_KEY) || "null"); } catch { return null; }
+}
+function setGhConfig(cfg) {
+  localStorage.setItem(GH_CFG_KEY, JSON.stringify(cfg));
+}
+
+function ghHeaders(token) {
+  return {
+    "Authorization": `token ${token}`,
+    "Accept": "application/vnd.github.v3+json",
+    "Content-Type": "application/json"
+  };
+}
+
+const GH_API = "https://api.github.com";
+
+async function ghGetFile(path) {
+  const cfg = getGhConfig();
+  if (!cfg) return null;
+  try {
+    const r = await fetch(`${GH_API}/repos/${cfg.user}/${cfg.repo}/contents/${path}`, {
+      headers: ghHeaders(cfg.token)
+    });
+    if (r.status === 404) return null;
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    const content = JSON.parse(atob(data.content.replace(/\n/g,'')));
+    return { content, sha: data.sha };
+  } catch(e) {
+    console.error("ghGetFile error:", path, e);
+    return null;
+  }
+}
+
+async function ghPutFile(path, content, sha, commitMsg) {
+  const cfg = getGhConfig();
+  if (!cfg) throw new Error("No GitHub config");
+  const body = {
+    message: commitMsg || `update ${path}`,
+    content: btoa(unescape(encodeURIComponent(JSON.stringify(content, null, 2)))),
+  };
+  if (sha) body.sha = sha;
+  const r = await fetch(`${GH_API}/repos/${cfg.user}/${cfg.repo}/contents/${path}`, {
+    method: "PUT",
+    headers: ghHeaders(cfg.token),
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) {
+    const err = await r.json().catch(() => ({}));
+    throw new Error(err.message || `HTTP ${r.status}`);
+  }
+  return await r.json();
+}
+
+// SHA cache — avoid re-fetching for every save
+const shaCache = {};
+
+async function loadGhJson(path) {
+  const result = await ghGetFile(path);
+  if (!result) return null;
+  shaCache[path] = result.sha;
+  return result.content;
+}
+
+async function saveGhJson(path, content, msg) {
+  setSyncState("syncing", `Guardando ${path}…`);
+  try {
+    const res = await ghPutFile(path, content, shaCache[path] || null, msg);
+    shaCache[path] = res.content.sha;
+    setSyncState("success", "Guardado en GitHub ✓");
+    setTimeout(() => setSyncState("ok", "Conectado a GitHub"), 3000);
+  } catch(e) {
+    setSyncState("error", "Error al guardar: " + e.message);
+    showToast("Error al guardar en GitHub: " + e.message, "error");
+    throw e;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// SYNC BAR
+// ═══════════════════════════════════════════════════════════
+function setSyncState(state, text) {
+  const bar  = document.getElementById("sync-bar");
+  const dot  = document.getElementById("sync-dot");
+  const txt  = document.getElementById("sync-text");
+  bar.className = state;
+  dot.className = "sync-dot" + (state === "syncing" ? " pulse" : "");
+  txt.textContent = text;
+}
+
+// ═══════════════════════════════════════════════════════════
+// GITHUB CONFIG UI
+// ═══════════════════════════════════════════════════════════
+function openGhConfig() {
+  const cfg = getGhConfig() || {};
+  document.getElementById("gh-user").value  = cfg.user  || "";
+  document.getElementById("gh-repo").value  = cfg.repo  || "";
+  document.getElementById("gh-token").value = cfg.token || "";
+  document.getElementById("gh-config-modal").classList.remove("hidden");
+}
+
+document.getElementById("btn-gh-save").addEventListener("click", async () => {
+  const user  = document.getElementById("gh-user").value.trim();
+  const repo  = document.getElementById("gh-repo").value.trim();
+  const token = document.getElementById("gh-token").value.trim();
+  if (!user || !repo || !token) { showToast("Completa todos los campos.", "error"); return; }
+  setGhConfig({ user, repo, token });
+  document.getElementById("gh-config-modal").classList.add("hidden");
+  await initApp();
+});
+
+// ═══════════════════════════════════════════════════════════
+// APP STATE
+// ═══════════════════════════════════════════════════════════
+const BODEGAS = ["Caldas","La 33","Konfíe","TKS","Zona Franca NA","Zona Franca Sin-NA","En Transito","En tránsito 2","En producción","Long island","Miami","Dumbo","España","Portugal"];
+
+let referencias = [];
+let records     = [];
+let traslados   = [];
+let nextId      = 1;
+let nextTrId    = 1;
+
+let stockFilter   = "";
+let refFilter     = "";
+let trFilter      = "";
+let trLogFilter   = "";
+let pendingDeleteRef = null;
+let importRows    = [];
+let selectedRecordId = null;
+let pendingModalAction = null;
+
+// ═══════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════
+async function initApp() {
+  document.getElementById("app-loader").classList.remove("hidden");
+  document.getElementById("loader-text").textContent = "Conectando con GitHub…";
+
+  const cfg = getGhConfig();
+  if (!cfg) {
+    document.getElementById("app-loader").classList.add("hidden");
+    openGhConfig();
+    return;
+  }
+
+  setSyncState("syncing", "Cargando datos desde GitHub…");
+
+  try {
+    // Load referencias.json (read-only master file)
+    document.getElementById("loader-text").textContent = "Cargando referencias…";
+    const refs = await loadGhJson("referencias.json");
+    if (refs) {
+      // Map from the JSON structure {REFERENCIA, ITEM, PROVEEDOR, UNIDAD}
+      referencias = refs.map(r => ({
+        referencia: r.REFERENCIA || r.referencia || "",
+        items:      r.ITEM       || r.items      || "",
+        proveedor:  r.PROVEEDOR  || r.proveedor  || "",
+        unidad:     r.UNIDAD     || r.unidad      || "",
+      })).filter(r => r.referencia);
+    }
+
+    // Load records.json
+    document.getElementById("loader-text").textContent = "Cargando stock…";
+    const recs = await loadGhJson("data/records.json");
+    records = recs || [];
+    nextId  = records.length ? Math.max(...records.map(r => r.id), 0) + 1 : 1;
+
+    // Load traslados.json
+    document.getElementById("loader-text").textContent = "Cargando traslados…";
+    const tras = await loadGhJson("data/traslados.json");
+    traslados = tras || [];
+    nextTrId  = traslados.length ? Math.max(...traslados.map(t => t.id), 0) + 1 : 1;
+
+    setSyncState("ok", `Conectado a ${cfg.user}/${cfg.repo}`);
+  } catch(e) {
+    setSyncState("error", "Error al conectar: " + e.message);
+    showToast("No se pudo cargar los datos: " + e.message, "error");
+  }
+
+  // Boot UI
+  populateBodegaDropdowns();
+  populateTrBodegaDropdown();
+  populateRefDropdown();
+  renderStockTable();
+  renderRefTable();
+  renderTrStockTable();
+  renderTrLogTable();
+  renderDashboard();
+  updateBadges();
+
+  document.getElementById("app-loader").classList.add("hidden");
+}
+
+// ═══════════════════════════════════════════════════════════
+// SAVE HELPERS
+// ═══════════════════════════════════════════════════════════
+async function saveRecords() {
+  await saveGhJson("data/records.json", records, "update records");
+}
+async function saveTraslados() {
+  await saveGhJson("data/traslados.json", traslados, "update traslados");
+}
+
+// ═══════════════════════════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════════════════════════
+const cap     = s => s ? String(s).charAt(0).toUpperCase() + String(s).slice(1) : (s ?? '');
+const fmtDate = iso => { const d = new Date(iso), p = n => String(n).padStart(2,"0"); return `${p(d.getDate())}/${p(d.getMonth()+1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`; };
+
+let toastTimer;
+const showToast = (msg, type) => {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.className = "show " + (type||"");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.className = ""; }, 3500);
+};
+
+const setErr   = id => document.getElementById(id).classList.add("has-error");
+const clearErr = id => document.getElementById(id).classList.remove("has-error");
+
+const updateBadges = () => {
+  document.getElementById("badge-stock").textContent     = records.length;
+  document.getElementById("badge-ref").textContent       = referencias.length;
+  document.getElementById("badge-traslados").textContent = traslados.length;
+};
+
+// ═══════════════════════════════════════════════════════════
+// TAB SWITCHING
+// ═══════════════════════════════════════════════════════════
+function switchTab(tab) {
+  document.querySelectorAll(".nav-tab").forEach(t => t.classList.toggle("active", t.dataset.tab === tab));
+  document.querySelectorAll(".page").forEach(p => p.classList.toggle("active", p.id === "page-" + tab));
+  if (tab === "referencias") renderRefTable();
+  if (tab === "traslados")   { renderTrStockTable(); renderTrLogTable(); }
+  if (tab === "dashboard")   renderDashboard();
+}
+
+// ═══════════════════════════════════════════════════════════
+// DROPDOWNS
+// ═══════════════════════════════════════════════════════════
+const selRef     = document.getElementById("sel-referencia");
+const selBod     = document.getElementById("sel-bodega");
+const dispItems  = document.getElementById("disp-items");
+const dispProv   = document.getElementById("disp-proveedor");
+const dispUnidad = document.getElementById("disp-unidad");
+const inpQty     = document.getElementById("inp-qty");
+
+function populateRefDropdown() {
+  const prev = selRef.value;
+  selRef.innerHTML = '<option value="">— Seleccionar —</option>';
+  referencias.forEach(r => {
+    const o = document.createElement("option");
+    o.value = r.referencia; o.textContent = r.referencia;
+    selRef.appendChild(o);
+  });
+  selRef.value = prev;
+  const found = referencias.find(r => r.referencia === prev);
+  if (found) setDispFields(found); else if (!prev) clearDispFields();
+}
+
+function setDispFields(ref) {
+  dispItems.innerHTML  = `<span class="tag">${cap(ref.items)}</span>`;   dispItems.classList.remove("empty");
+  dispProv.innerHTML   = `<span class="tag">${cap(ref.proveedor)}</span>`; dispProv.classList.remove("empty");
+  dispUnidad.innerHTML = `<span class="tag">${ref.unidad || '—'}</span>`; dispUnidad.classList.remove("empty");
+}
+function clearDispFields() {
+  ["disp-items","disp-proveedor","disp-unidad"].forEach(id => {
+    const el = document.getElementById(id);
+    el.textContent = "Sin selección"; el.classList.add("empty");
+  });
+}
+function populateBodegaDropdowns() {
+  [selBod, document.getElementById("import-bodega")].forEach(sel => {
+    const prev = sel.value;
+    sel.innerHTML = '<option value="">— Seleccionar —</option>';
+    BODEGAS.forEach(b => { const o = document.createElement("option"); o.value = b; o.textContent = b; sel.appendChild(o); });
+    sel.value = prev;
+  });
+}
+function populateTrBodegaDropdown() {
+  const sel = document.getElementById("tr-sel-bodega-dest");
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">— Seleccionar —</option>';
+  BODEGAS.forEach(b => { const o = document.createElement("option"); o.value = b; o.textContent = b; sel.appendChild(o); });
+  sel.value = prev;
+}
+
+selRef.addEventListener("change", () => {
+  const found = referencias.find(r => r.referencia === selRef.value);
+  clearErr("grp-referencia");
+  found ? setDispFields(found) : clearDispFields();
+});
+
+// ═══════════════════════════════════════════════════════════
+// STOCK — SAVE MANUAL RECORD
+// ═══════════════════════════════════════════════════════════
+document.getElementById("btn-guardar").addEventListener("click", async () => {
+  let ok = true;
+  clearErr("grp-referencia"); clearErr("grp-bodega"); clearErr("grp-qty"); clearErr("grp-bl");
+  if (!selRef.value) { setErr("grp-referencia"); ok = false; }
+  if (!selBod.value) { setErr("grp-bodega"); ok = false; }
+  const qty = parseInt(inpQty.value);
+  if (!inpQty.value || isNaN(qty) || qty <= 0) { setErr("grp-qty"); ok = false; }
+  const blVal = document.getElementById("inp-bl").value.trim();
+  if (!blVal) { setErr("grp-bl"); ok = false; }
+  if (!ok) { showToast("Revisa los campos obligatorios.", "error"); return; }
+
+  const dupBL = records.find(r => r.bl && r.bl === blVal);
+  if (dupBL) { showToast("BL ya existe, ya fue subido.", "error"); setErr("grp-bl"); return; }
+
+  const found = referencias.find(r => r.referencia === selRef.value);
+  const btn = document.getElementById("btn-guardar");
+  btn.disabled = true;
+  try {
+    await pushRecord({
+      referencia: selRef.value,
+      items:      found.items,
+      proveedor:  found.proveedor,
+      unidad:     found.unidad || '—',
+      bodega:     selBod.value,
+      qty, bl: blVal,
+    });
+    selRef.value = ""; selBod.value = "";
+    ["inp-qty","inp-bl"].forEach(id => document.getElementById(id).value = "");
+    clearDispFields();
+    showToast("✓ Registro guardado en GitHub.", "success");
+  } catch(e) { /* already toasted */ }
+  finally { btn.disabled = false; }
+});
+
+async function pushRecord(data) {
+  records.unshift({ id: nextId++, ...data, created_at: new Date().toISOString() });
+  await saveRecords();
+  renderStockTable();
+  renderDashboard();
+  if (document.getElementById("page-traslados").classList.contains("active")) renderTrStockTable();
+  updateBadges();
+}
+
+// ═══════════════════════════════════════════════════════════
+// STOCK — DELETE
+// ═══════════════════════════════════════════════════════════
+function deleteRecord(id) {
+  pendingModalAction = async () => {
+    records = records.filter(r => r.id !== id);
+    await saveRecords();
+    renderStockTable(); renderDashboard(); updateBadges();
+    showToast("Registro eliminado.", "");
+    closeModal();
+  };
+  document.getElementById("modal-title").textContent = "¿Eliminar registro?";
+  document.getElementById("modal-body").textContent = "Esta acción no se puede deshacer.";
+  document.getElementById("confirm-modal").classList.add("open");
+}
+
+// ═══════════════════════════════════════════════════════════
+// STOCK — RENDER TABLE
+// ═══════════════════════════════════════════════════════════
+function renderStockTable() {
+  const tbody = document.getElementById("table-body");
+  const f = stockFilter.toLowerCase();
+  const filtered = records.filter(r =>
+    !f || [r.referencia, r.items, r.proveedor, r.bodega, r.bl].filter(Boolean).some(v => String(v).toLowerCase().includes(f))
+  );
+  document.getElementById("record-count").textContent =
+    filtered.length === records.length ? `${records.length} registro${records.length!==1?"s":""}` : `${filtered.length} de ${records.length}`;
+
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state">
+      <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      <p>${records.length ? "Sin resultados." : "No hay registros aún."}</p>
+    </div></td></tr>`; return;
+  }
+  tbody.innerHTML = filtered.map((r, i) => `
+    <tr class="${i===0&&!f?'new-row':''}">
+      <td>${r.bl ? `<span class="td-bl">${r.bl}</span>` : '<span style="color:var(--text3)">—</span>'}</td>
+      <td class="td-ref">${r.referencia}</td>
+      <td>${cap(r.items)}</td>
+      <td><span class="td-tag">${cap(r.proveedor)}</span></td>
+      <td><span class="td-chip-blue">${r.unidad||'—'}</span></td>
+      <td><span class="td-chip">${r.bodega}</span></td>
+      <td class="td-qty" style="text-align:right">${r.qty}</td>
+      <td class="td-date">${fmtDate(r.created_at)}</td>
+      <td><button class="btn-del" onclick="deleteRecord(${r.id})" title="Eliminar">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+      </button></td>
+    </tr>`).join("");
+}
+document.getElementById("filter-input").addEventListener("input", e => { stockFilter = e.target.value; renderStockTable(); });
+
+// ═══════════════════════════════════════════════════════════
+// EXCEL IMPORT
+// ═══════════════════════════════════════════════════════════
+function normCol(s) {
+  return String(s || '').replace(/[\u4e00-\u9fff\n\r]/g,'').replace(/[^a-zA-Z0-9#\/\s]/g,'').trim().toUpperCase().replace(/\s+/g,' ');
+}
+const COL_MAP = { '#BL':'bl','SUPPLIER':'proveedor','REFERENCE':'referencia','NAME':'items','QUANTITY':'qty','UNIT OF MEASUREMENT':'unidad' };
+function matchCol(header) {
+  const n = normCol(header);
+  if (COL_MAP[n]) return COL_MAP[n];
+  if (n.startsWith('#BL'))               return 'bl';
+  if (n === 'SUPPLIER')                  return 'proveedor';
+  if (n === 'REFERENCE')                 return 'referencia';
+  if (n === 'NAME')                      return 'items';
+  if (n === 'QUANTITY')                  return 'qty';
+  if (n.includes('UNIT OF MEASUREMENT')) return 'unidad';
+  return null;
+}
+
+function parseExcel(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'binary', cellDates: true });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const allRows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true });
+      if (allRows.length < 12) { showToast("El archivo no tiene suficientes filas.", "error"); return; }
+      const headerRow = allRows[11];
+      const colIdx = {};
+      headerRow.forEach((h, i) => { const key = matchCol(h); if (key && !(key in colIdx)) colIdx[key] = i; });
+      const missing = ['referencia','qty'].filter(k => !(k in colIdx));
+      if (missing.length) { showToast(`Columnas no encontradas: ${missing.join(', ')}`, "error"); return; }
+      importRows = [];
+      for (let i = 12; i < allRows.length; i++) {
+        const row = allRows[i];
+        if (!row || row.every(c => c === null || c === '')) continue;
+        const ref = row[colIdx['referencia']] != null ? String(row[colIdx['referencia']]).trim() : '';
+        const qty = row[colIdx['qty']] != null ? Number(row[colIdx['qty']]) : null;
+        if (!ref && (qty === null || isNaN(qty))) continue;
+        importRows.push({
+          bl:        colIdx['bl']        != null ? (row[colIdx['bl']]        ?? '') : '',
+          proveedor: colIdx['proveedor'] != null ? (row[colIdx['proveedor']] ?? '') : '',
+          referencia: ref,
+          items:     colIdx['items']     != null ? (row[colIdx['items']]     ?? '') : '',
+          qty:       (!isNaN(qty) && qty !== null) ? qty : 0,
+          unidad:    colIdx['unidad']    != null ? (row[colIdx['unidad']]    ?? '') : '',
+        });
+      }
+      for (let i = 0; i < importRows.length; i++) {
+        if (!String(importRows[i].bl || '').trim()) { showToast(`BL vacío en row ${i+13}`, "error"); importRows = []; document.getElementById("file-input").value = ""; return; }
+      }
+      const existingBLs = new Set(records.map(r => String(r.bl||'').trim()).filter(Boolean));
+      for (let i = 0; i < importRows.length; i++) {
+        const bl = String(importRows[i].bl||'').trim();
+        if (existingBLs.has(bl)) { showToast(`BL ya existe: ${bl}`, "error"); importRows = []; document.getElementById("file-input").value = ""; return; }
+      }
+      for (let i = 0; i < importRows.length; i++) {
+        if (!String(importRows[i].proveedor||'').trim()) { showToast(`Proveedor vacío en row ${i+13}`, "error"); importRows = []; document.getElementById("file-input").value = ""; return; }
+      }
+      const knownProveedores = new Set(referencias.map(r => String(r.proveedor||'').trim().toLowerCase()).filter(Boolean));
+      for (let i = 0; i < importRows.length; i++) {
+        const prov = String(importRows[i].proveedor||'').trim();
+        if (!knownProveedores.has(prov.toLowerCase())) { showToast(`Proveedor no existe: "${prov}" (row ${i+13})`, "error"); importRows = []; document.getElementById("file-input").value = ""; return; }
+      }
+      showPreview(file.name, importRows);
+    } catch(err) { showToast("Error al leer el archivo: " + err.message, "error"); }
+  };
+  reader.readAsBinaryString(file);
+}
+
+function showPreview(filename, rows) {
+  document.getElementById("preview-filename").textContent = filename;
+  document.getElementById("preview-info").textContent = `${rows.length} fila${rows.length!==1?"s":""} leída${rows.length!==1?"s":""}`;
+  document.getElementById("import-count").textContent = `${rows.length} registros`;
+  document.getElementById("preview-section").style.display = "block";
+  document.getElementById("preview-section").scrollIntoView({ behavior:"smooth", block:"start" });
+  const tbody = document.getElementById("preview-body");
+  tbody.innerHTML = rows.map(r => {
+    const inCatalog = referencias.find(ref => ref.referencia === r.referencia);
+    const status = inCatalog ? `<span class="row-status ok">✓ en catálogo</span>` : `<span class="row-status warn">⚠ sin ref</span>`;
+    return `<tr>
+      <td>${r.bl ? `<span class="td-bl">${r.bl}</span>` : '—'}</td>
+      <td class="td-ref">${r.proveedor||'—'}</td>
+      <td class="td-ref">${r.referencia||'—'}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis">${cap(String(r.items||''))}</td>
+      <td class="td-num">${r.qty}</td>
+      <td><span class="td-chip-blue">${r.unidad||'—'}</span></td>
+      <td>${status}</td>
+    </tr>`;
+  }).join("");
+}
+
+function cancelImport() {
+  importRows = [];
+  document.getElementById("preview-section").style.display = "none";
+  document.getElementById("file-input").value = "";
+  document.getElementById("import-bodega").value = "";
+}
+document.getElementById("btn-cancel-import").addEventListener("click", cancelImport);
+
+document.getElementById("btn-confirm-import").addEventListener("click", async () => {
+  const bodega = document.getElementById("import-bodega").value;
+  if (!bodega) { showToast("Selecciona una bodega destino.", "error"); return; }
+  if (!importRows.length) { showToast("No hay filas para importar.", "error"); return; }
+  const btn = document.getElementById("btn-confirm-import");
+  btn.disabled = true;
+  try {
+    importRows.forEach(r => {
+      records.unshift({
+        id: nextId++,
+        referencia: r.referencia || '—',
+        items:      String(r.items || ''),
+        proveedor:  String(r.proveedor || ''),
+        unidad:     String(r.unidad || ''),
+        bodega, qty: Number(r.qty) || 0,
+        bl:         String(r.bl || ''),
+        created_at: new Date().toISOString()
+      });
+    });
+    await saveRecords();
+    populateRefDropdown();
+    renderStockTable();
+    renderDashboard();
+    updateBadges();
+    cancelImport();
+    showToast(`✓ ${importRows.length || records.length} registros importados a GitHub.`, "success");
+  } catch(e) { /* already toasted */ }
+  finally { btn.disabled = false; }
+});
+
+const fileInput  = document.getElementById("file-input");
+const uploadZone = document.getElementById("upload-zone");
+fileInput.addEventListener("change", e => { if (e.target.files[0]) parseExcel(e.target.files[0]); });
+uploadZone.addEventListener("dragover",  e => { e.preventDefault(); uploadZone.classList.add("drag-over"); });
+uploadZone.addEventListener("dragleave", ()=> { uploadZone.classList.remove("drag-over"); });
+uploadZone.addEventListener("drop", e => {
+  e.preventDefault(); uploadZone.classList.remove("drag-over");
+  const f = e.dataTransfer.files[0];
+  if (f && (f.name.endsWith(".xlsx") || f.name.endsWith(".xls"))) parseExcel(f);
+  else showToast("Sube un archivo .xlsx o .xls", "error");
+});
+
+// ═══════════════════════════════════════════════════════════
+// REFERENCIAS — RENDER TABLE (read-only from GitHub)
+// ═══════════════════════════════════════════════════════════
+function renderRefTable() {
+  const tbody = document.getElementById("ref-table-body");
+  const f = refFilter.toLowerCase();
+  const filtered = referencias.filter(r =>
+    !f || [r.referencia, r.items, r.proveedor].some(v => String(v).toLowerCase().includes(f))
+  );
+  document.getElementById("ref-count").textContent =
+    filtered.length === referencias.length ? `${referencias.length} referencia${referencias.length!==1?"s":""}` : `${filtered.length} de ${referencias.length}`;
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state">
+      <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      <p>${referencias.length ? "Sin resultados." : "No se pudo cargar referencias.json"}</p>
+    </div></td></tr>`; return;
+  }
+  tbody.innerHTML = filtered.map((r, i) => `
+    <tr>
+      <td class="td-date" style="width:36px;color:var(--text3)">${i+1}</td>
+      <td class="td-ref">${r.referencia}</td>
+      <td>${cap(r.items)}</td>
+      <td><span class="td-tag">${cap(r.proveedor)}</span></td>
+      <td><span class="td-chip-blue">${r.unidad||'—'}</span></td>
+    </tr>`).join("");
+}
+document.getElementById("ref-filter").addEventListener("input", e => { refFilter = e.target.value; renderRefTable(); });
+
+// ═══════════════════════════════════════════════════════════
+// TRASLADOS
+// ═══════════════════════════════════════════════════════════
+function getAggregatedStock() {
+  const map = {};
+  records.forEach(r => { if (!map[r.id]) map[r.id] = { ...r }; });
+  traslados.forEach(t => { if (map[t.sourceId]) map[t.sourceId].qty = (map[t.sourceId].qty || 0) - t.qty; });
+  return Object.values(map).filter(r => r.qty > 0);
+}
+
+function renderTrStockTable() {
+  const tbody = document.getElementById("tr-stock-body");
+  const f = trFilter.toLowerCase();
+  const stock = getAggregatedStock();
+  const filtered = stock.filter(r =>
+    !f || [r.referencia, r.items, r.proveedor, r.bodega, r.bl].filter(Boolean).some(v => String(v).toLowerCase().includes(f))
+  );
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state">
+      <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      <p>${records.length ? "Sin resultados." : "No hay stock registrado."}</p>
+    </div></td></tr>`; return;
+  }
+  tbody.innerHTML = filtered.map(r => `
+    <tr class="tr-row-select ${selectedRecordId === r.id ? 'selected' : ''}" onclick="selectStockRow(${r.id})">
+      <td style="text-align:center"><input type="radio" class="tr-radio" name="tr-select" ${selectedRecordId === r.id ? 'checked' : ''}/></td>
+      <td>${r.bl ? `<span class="td-bl">${r.bl}</span>` : '<span style="color:var(--text3)">—</span>'}</td>
+      <td class="td-ref">${r.referencia}</td>
+      <td>${cap(r.items)}</td>
+      <td><span class="td-tag">${cap(r.proveedor)}</span></td>
+      <td><span class="td-chip-blue">${r.unidad||'—'}</span></td>
+      <td><span class="tr-bodega-from">${r.bodega}</span></td>
+      <td class="td-qty" style="text-align:right">${r.qty}</td>
+    </tr>`).join("");
+}
+
+function selectStockRow(id) {
+  const stock = getAggregatedStock();
+  const rec = stock.find(r => r.id === id);
+  if (!rec) return;
+  selectedRecordId = id;
+  renderTrStockTable();
+  const section = document.getElementById("tr-form-section");
+  section.style.display = "block";
+  section.scrollIntoView({ behavior:"smooth", block:"start" });
+  document.getElementById("tr-selected-summary").innerHTML = `
+    <div class="tr-summary-item"><span class="tr-summary-label">Referencia</span><span class="tr-summary-value td-ref" style="font-size:13px">${rec.referencia}</span></div>
+    <div class="tr-summary-item"><span class="tr-summary-label">Item</span><span class="tr-summary-value">${cap(rec.items)}</span></div>
+    <div class="tr-summary-item"><span class="tr-summary-label">Proveedor</span><span class="tr-summary-value">${cap(rec.proveedor)}</span></div>
+    <div class="tr-summary-item"><span class="tr-summary-label">Bodega origen</span><span class="tr-summary-value"><span class="tr-bodega-from">${rec.bodega}</span></span></div>
+    <div class="tr-summary-item"><span class="tr-summary-label">Stock disponible</span><span class="tr-summary-value" style="font-size:18px">${rec.qty} <span style="font-size:11px;font-weight:400;opacity:0.7">${rec.unidad||''}</span></span></div>
+  `;
+  const destSel = document.getElementById("tr-sel-bodega-dest");
+  destSel.innerHTML = '<option value="">— Seleccionar —</option>';
+  BODEGAS.filter(b => b !== rec.bodega).forEach(b => { const o = document.createElement("option"); o.value = b; o.textContent = b; destSel.appendChild(o); });
+  destSel.value = "";
+  document.getElementById("tr-inp-qty").value = "";
+  document.getElementById("tr-inp-nota").value = "";
+  ["trgrp-bodega-dest","trgrp-qty"].forEach(clearErr);
+}
+
+function cancelTrSelection() {
+  selectedRecordId = null;
+  document.getElementById("tr-form-section").style.display = "none";
+  renderTrStockTable();
+}
+document.getElementById("btn-tr-cancel").addEventListener("click", cancelTrSelection);
+document.getElementById("tr-filter-input").addEventListener("input", e => { trFilter = e.target.value; renderTrStockTable(); });
+
+document.getElementById("btn-tr-confirmar").addEventListener("click", async () => {
+  let ok = true;
+  clearErr("trgrp-bodega-dest"); clearErr("trgrp-qty");
+  const bodegaDest = document.getElementById("tr-sel-bodega-dest").value;
+  const qty        = parseInt(document.getElementById("tr-inp-qty").value);
+  const nota       = document.getElementById("tr-inp-nota").value.trim();
+  if (!bodegaDest) { setErr("trgrp-bodega-dest"); ok = false; }
+  const stock = getAggregatedStock();
+  const rec = stock.find(r => r.id === selectedRecordId);
+  if (!rec) { showToast("Selecciona un ítem del inventario.", "error"); return; }
+  if (!document.getElementById("tr-inp-qty").value || isNaN(qty) || qty <= 0) {
+    document.getElementById("tr-qty-error").textContent = "Debe ser mayor a 0"; setErr("trgrp-qty"); ok = false;
+  } else if (qty > rec.qty) {
+    document.getElementById("tr-qty-error").textContent = `Máximo disponible: ${rec.qty}`; setErr("trgrp-qty"); ok = false;
+  }
+  if (!ok) { showToast("Revisa los campos del traslado.", "error"); return; }
+  const btn = document.getElementById("btn-tr-confirmar");
+  btn.disabled = true;
+  try {
+    traslados.unshift({ id: nextTrId++, sourceId: rec.id, referencia: rec.referencia, items: rec.items, proveedor: rec.proveedor, unidad: rec.unidad||'', bodegaOrigen: rec.bodega, bodegaDest, qty, nota, created_at: new Date().toISOString() });
+    await saveTraslados();
+    renderStockTable(); renderDashboard(); updateBadges();
+    renderTrStockTable(); renderTrLogTable();
+    cancelTrSelection();
+    showToast(`✓ Traslado de ${qty} unidades registrado a ${bodegaDest}.`, "success");
+  } catch(e) { /* toasted */ }
+  finally { btn.disabled = false; }
+});
+
+function renderTrLogTable() {
+  const tbody = document.getElementById("tr-log-body");
+  const f = trLogFilter.toLowerCase();
+  const filtered = traslados.filter(t =>
+    !f || [t.referencia, t.items, t.bodegaOrigen, t.bodegaDest, t.nota].filter(Boolean).some(v => String(v).toLowerCase().includes(f))
+  );
+  document.getElementById("tr-count").textContent =
+    filtered.length === traslados.length ? `${traslados.length} traslado${traslados.length!==1?"s":""}` : `${filtered.length} de ${traslados.length}`;
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state">
+      <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+      <p>No hay traslados registrados aún.</p>
+    </div></td></tr>`; return;
+  }
+  tbody.innerHTML = filtered.map((t, i) => `
+    <tr class="${i===0&&!f?'new-row':''}">
+      <td class="td-date">${fmtDate(t.created_at)}</td>
+      <td class="td-ref">${t.referencia}</td>
+      <td>${cap(t.items)}</td>
+      <td><span class="tr-bodega-from">${t.bodegaOrigen}</span></td>
+      <td class="tr-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></td>
+      <td><span class="tr-bodega-to">${t.bodegaDest}</span></td>
+      <td class="td-qty" style="text-align:right">${t.qty}</td>
+      <td style="font-size:12px;color:var(--text3);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.nota||'—'}</td>
+      <td><button class="btn-del" onclick="deleteTrRecord(${t.id})" title="Eliminar traslado">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+      </button></td>
+    </tr>`).join("");
+}
+
+function deleteTrRecord(id) {
+  pendingModalAction = async () => {
+    traslados = traslados.filter(t => t.id !== id);
+    await saveTraslados();
+    renderStockTable(); renderDashboard(); renderTrStockTable(); renderTrLogTable(); updateBadges();
+    showToast("Traslado eliminado.", "");
+    closeModal();
+  };
+  document.getElementById("modal-title").textContent = "¿Eliminar traslado?";
+  document.getElementById("modal-body").textContent = "Esta acción no se puede deshacer.";
+  document.getElementById("confirm-modal").classList.add("open");
+}
+
+document.getElementById("tr-log-filter").addEventListener("input", e => { trLogFilter = e.target.value; renderTrLogTable(); });
+
+// ═══════════════════════════════════════════════════════════
+// MODAL
+// ═══════════════════════════════════════════════════════════
+function closeModal() {
+  document.getElementById("confirm-modal").classList.remove("open");
+  pendingModalAction = null;
+}
+document.getElementById("modal-confirm").addEventListener("click", async () => {
+  if (pendingModalAction) await pendingModalAction();
+});
+document.getElementById("confirm-modal").addEventListener("click", e => {
+  if (e.target === document.getElementById("confirm-modal")) closeModal();
+});
+
+// ═══════════════════════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════════════════════
+function getNetStockRows() {
+  const netMap = {};
+  records.forEach(r => {
+    const key = `${r.referencia}||${r.bodega}||${r.bl||''}`;
+    if (!netMap[key]) netMap[key] = { referencia: r.referencia, items: r.items, proveedor: r.proveedor, unidad: r.unidad||'', bodega: r.bodega, bl: r.bl||'', qty: 0 };
+    netMap[key].qty += r.qty;
+  });
+  traslados.forEach(t => {
+    const srcRec = records.find(r => r.id === t.sourceId);
+    if (!srcRec) return;
+    const key = `${srcRec.referencia}||${srcRec.bodega}||${srcRec.bl||''}`;
+    if (netMap[key]) netMap[key].qty -= t.qty;
+  });
+  traslados.forEach(t => {
+    const srcRec = records.find(r => r.id === t.sourceId);
+    if (!srcRec) return;
+    const key = `${t.referencia}||${t.bodegaDest}||${srcRec.bl||''}`;
+    if (!netMap[key]) netMap[key] = { referencia: t.referencia, items: t.items, proveedor: t.proveedor, unidad: t.unidad||'', bodega: t.bodegaDest, bl: srcRec.bl||'', qty: 0 };
+    netMap[key].qty += t.qty;
+  });
+  return Object.values(netMap).filter(r => r.qty > 0);
+}
+
+function populateDashFilters() {
+  const rows = getNetStockRows();
+  const blSel = document.getElementById("dash-filter-bl");
+  const prevBl = blSel.value;
+  blSel.innerHTML = '<option value="">Todos los BL</option>';
+  [...new Set(rows.map(r => r.bl).filter(Boolean))].sort().forEach(bl => { const o = document.createElement("option"); o.value = bl; o.textContent = bl; blSel.appendChild(o); });
+  blSel.value = prevBl;
+  const refSel = document.getElementById("dash-filter-ref");
+  const prevRef = refSel.value;
+  refSel.innerHTML = '<option value="">Todas las referencias</option>';
+  [...new Set(rows.map(r => r.referencia))].sort().forEach(ref => { const o = document.createElement("option"); o.value = ref; o.textContent = ref; refSel.appendChild(o); });
+  refSel.value = prevRef;
+  const bodSel = document.getElementById("dash-filter-bodega");
+  const prevBod = bodSel.value;
+  bodSel.innerHTML = '<option value="">Todas las bodegas</option>';
+  [...new Set(rows.map(r => r.bodega))].sort().forEach(b => { const o = document.createElement("option"); o.value = b; o.textContent = b; bodSel.appendChild(o); });
+  bodSel.value = prevBod;
+}
+
+function renderDashboard() {
+  const allRows = getNetStockRows();
+  const blF  = document.getElementById("dash-filter-bl")?.value    || '';
+  const refF = document.getElementById("dash-filter-ref")?.value   || '';
+  const bodF = document.getElementById("dash-filter-bodega")?.value || '';
+  const filtered = allRows.filter(r => (!blF||r.bl===blF) && (!refF||r.referencia===refF) && (!bodF||r.bodega===bodF));
+  const totalQty   = filtered.reduce((s, r) => s + r.qty, 0);
+  const uniqueRefs = new Set(filtered.map(r => r.referencia)).size;
+  const uniqueBods = new Set(filtered.map(r => r.bodega)).size;
+  document.getElementById("kpi-total-qty").textContent  = totalQty.toLocaleString('es-CO');
+  document.getElementById("kpi-total-sub").textContent  = `en ${uniqueBods} bodega${uniqueBods!==1?'s':''}`;
+  document.getElementById("kpi-refs").textContent       = uniqueRefs;
+  document.getElementById("kpi-bodegas").textContent    = uniqueBods;
+  document.getElementById("kpi-traslados").textContent  = traslados.length;
+  document.getElementById("dash-row-count").textContent = `${filtered.length} fila${filtered.length!==1?'s':''}`;
+  populateDashFilters();
+  const tbody = document.getElementById("dash-table-body");
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state">
+      <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      <p>${allRows.length ? "Sin resultados para los filtros seleccionados." : "No hay stock registrado aún."}</p>
+    </div></td></tr>`; return;
+  }
+  const maxQty = Math.max(...filtered.map(r => r.qty), 1);
+  const sorted = [...filtered].sort((a,b) => a.referencia.localeCompare(b.referencia) || a.bodega.localeCompare(b.bodega));
+  tbody.innerHTML = sorted.map((r, i) => {
+    const pct = Math.round((r.qty/maxQty)*100);
+    return `<tr class="${i===0?'new-row':''}">
+      <td>${r.bl ? `<span class="td-bl">${r.bl}</span>` : '<span style="color:var(--text3)">—</span>'}</td>
+      <td class="td-ref">${r.referencia}</td>
+      <td>${cap(r.items)}</td>
+      <td><span class="td-tag">${cap(r.proveedor)}</span></td>
+      <td><span class="td-chip-blue">${r.unidad||'—'}</span></td>
+      <td><span class="td-chip">${r.bodega}</span></td>
+      <td class="td-qty" style="text-align:right;font-size:15px">${r.qty.toLocaleString('es-CO')}</td>
+      <td><div class="dash-bar-wrap"><div style="font-size:10.5px;color:var(--text3);font-family:'DM Mono',monospace">${pct}% del máx</div><div class="dash-bar-track"><div class="dash-bar-fill" style="width:${pct}%"></div></div></div></td>
+    </tr>`;
+  }).join("");
+}
+
+["dash-filter-bl","dash-filter-ref","dash-filter-bodega"].forEach(id => {
+  document.getElementById(id)?.addEventListener("change", renderDashboard);
+});
+document.getElementById("btn-dash-clear").addEventListener("click", () => {
+  document.getElementById("dash-filter-bl").value = "";
+  document.getElementById("dash-filter-ref").value = "";
+  document.getElementById("dash-filter-bodega").value = "";
+  renderDashboard();
+});
+
+// ═══════════════════════════════════════════════════════════
+// HEADER DATE
+// ═══════════════════════════════════════════════════════════
+const updateDate = () => {
+  document.getElementById("headerDate").textContent =
+    new Date().toLocaleDateString("es-CO", { weekday:"short", year:"numeric", month:"short", day:"numeric" });
+};
+updateDate();
+setInterval(updateDate, 60000);
+
+// ═══════════════════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════════════════
+initApp();
+</script>
+</body>
+</html>
