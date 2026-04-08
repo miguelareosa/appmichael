@@ -1,16 +1,5 @@
 [
   {
-    "id": 8,
-    "referencia": "M10206",
-    "items": "GLASS MIRROR TILE",
-    "proveedor": "BAOHUA",
-    "unidad": "SQM",
-    "bodega": "La 33",
-    "qty": 500,
-    "bl": "SWO0000002",
-    "created_at": "2026-04-08T16:57:11.654Z"
-  },
-  {
     "id": 7,
     "referencia": "B1220-B",
     "items": "CERAMIC GREEN TILE",
