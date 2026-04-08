@@ -1,0 +1,90 @@
+[
+  {
+    "id": 8,
+    "referencia": "M10206",
+    "items": "GLASS MIRROR TILE",
+    "proveedor": "BAOHUA",
+    "unidad": "SQM",
+    "bodega": "La 33",
+    "qty": 500,
+    "bl": "SWO0000002",
+    "created_at": "2026-04-08T16:57:11.654Z"
+  },
+  {
+    "id": 7,
+    "referencia": "B1220-B",
+    "items": "CERAMIC GREEN TILE",
+    "proveedor": "BAOHUA",
+    "unidad": "SQM",
+    "bodega": "La 33",
+    "qty": 500,
+    "bl": "SWO0000002",
+    "created_at": "2026-04-08T16:57:11.654Z"
+  },
+  {
+    "id": 6,
+    "referencia": "B1207-B",
+    "items": "CERAMIC BLUE TILE",
+    "proveedor": "BAOHUA",
+    "unidad": "SQM",
+    "bodega": "La 33",
+    "qty": 500,
+    "bl": "SWO0000002",
+    "created_at": "2026-04-08T16:57:11.654Z"
+  },
+  {
+    "id": 5,
+    "referencia": "B12008-B",
+    "items": "CERAMIC BLACK TILE",
+    "proveedor": "BAOHUA",
+    "unidad": "SQM",
+    "bodega": "La 33",
+    "qty": 500,
+    "bl": "SWO0000002",
+    "created_at": "2026-04-08T16:57:11.654Z"
+  },
+  {
+    "id": 4,
+    "referencia": "B1200-B",
+    "items": "CERAMIC WHITE TILE",
+    "proveedor": "BAOHUA",
+    "unidad": "SQM",
+    "bodega": "La 33",
+    "qty": 500,
+    "bl": "SWO0000002",
+    "created_at": "2026-04-08T16:57:11.654Z"
+  },
+  {
+    "id": 3,
+    "referencia": "LV082-1",
+    "items": "PVC FLOOR WOOD",
+    "proveedor": "ASX",
+    "unidad": "SQM",
+    "bodega": "La 33",
+    "qty": 500,
+    "bl": "SWO0000002",
+    "created_at": "2026-04-08T16:57:11.654Z"
+  },
+  {
+    "id": 2,
+    "referencia": "87014-7",
+    "items": "PVC FLOOR CONCRETE",
+    "proveedor": "ASX",
+    "unidad": "SQM",
+    "bodega": "La 33",
+    "qty": 500,
+    "bl": "SWO0000002",
+    "created_at": "2026-04-08T16:57:11.654Z"
+  },
+  {
+    "id": 1,
+    "referencia": "BS-2003",
+    "items": "RUBBER FLOOR",
+    "proveedor": "BERSON",
+    "unidad": "SQM",
+    "bodega": "La 33",
+    "qty": 500,
+    "bl": "SWO0000002",
+    "created_at": "2026-04-08T16:57:11.654Z"
+  }
+]
