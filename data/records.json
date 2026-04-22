@@ -1,16 +1,5 @@
 [
   {
-    "id": 5,
-    "referencia": "HPVCFOAM",
-    "items": "PVC SELF ADHESIVE FILM",
-    "proveedor": "HUASON",
-    "unidad": "SQM",
-    "bodega": "Zona Franca NA",
-    "qty": 200,
-    "bl": "SW000001",
-    "created_at": "2026-04-14T15:57:52.677Z"
-  },
-  {
     "id": 4,
     "referencia": "B1200-B",
     "items": "CERAMIC WHITE TILE",
