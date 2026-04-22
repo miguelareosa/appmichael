@@ -1,0 +1,19 @@
+[
+  {
+    "id": 1,
+    "bodega": "Zona Franca NA",
+    "usuario": "juan",
+    "fecha": "2026-04-22",
+    "tipo": "hola",
+    "items": [
+      {
+        "referencia": "SMD2835-120LED/M-P",
+        "nombre": "CINTA LED MORADA",
+        "peso_kg": 1,
+        "paquete": "MACHINE",
+        "cantidad": 20
+      }
+    ],
+    "created_at": "2026-04-22T03:24:16.396Z"
+  }
+]
