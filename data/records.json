@@ -1,16 +1,5 @@
 [
   {
-    "id": 6,
-    "referencia": "SMD2835-120LED/M-P",
-    "items": "10M PURPLE LED STRIP",
-    "proveedor": "FESTA LIGHT",
-    "unidad": "LINEAL METER",
-    "bodega": "Zona Franca NA",
-    "qty": 200,
-    "bl": "SW000001",
-    "created_at": "2026-04-14T15:57:52.677Z"
-  },
-  {
     "id": 5,
     "referencia": "HPVCFOAM",
     "items": "PVC SELF ADHESIVE FILM",
