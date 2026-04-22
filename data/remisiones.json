@@ -1,5 +1,31 @@
 [
   {
+    "id": 2,
+    "bodega": "Caldas",
+    "usuario": "ffffff",
+    "fecha": "2026-04-22",
+    "tipo": "fffffff",
+    "items": [
+      {
+        "referencia": "B1200-B",
+        "nombre": "ENCHAPE BLANCO",
+        "peso_kg": 4,
+        "paquete": "ff",
+        "cantidad": 50
+      }
+    ],
+    "created_at": "2026-04-22T03:46:14.950Z",
+    "consumedFrom": [
+      {
+        "recordId": 1,
+        "bl": "To be disclosed 2",
+        "referencia": "B1200-B",
+        "qty": 50
+      }
+    ],
+    "stockConsumed": true
+  },
+  {
     "id": 1,
     "bodega": "Zona Franca NA",
     "usuario": "juan",
