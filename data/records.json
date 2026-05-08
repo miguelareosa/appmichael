@@ -2026,7 +2026,7 @@
   {
     "id": 1286,
     "referencia": "JC-JGD-4T-QC",
-    "items": "LUZ LÃSER RGB",
+    "items": "LUZ LÁSER RGB",
     "proveedor": "YIYING",
     "unidad": "UNIT",
     "bodega": "En producción",
@@ -4336,7 +4336,7 @@
   {
     "id": 1076,
     "referencia": "JC-JGD-4T-QC",
-    "items": "LUZ LÃSER RGB",
+    "items": "LUZ LÁSER RGB",
     "proveedor": "YIYING",
     "unidad": "UNIT",
     "bodega": "Portugal",
@@ -6646,7 +6646,7 @@
   {
     "id": 866,
     "referencia": "JC-JGD-4T-QC",
-    "items": "LUZ LÃSER RGB",
+    "items": "LUZ LÁSER RGB",
     "proveedor": "YIYING",
     "unidad": "UNIT",
     "bodega": "España",
@@ -8956,7 +8956,7 @@
   {
     "id": 656,
     "referencia": "JC-JGD-4T-QC",
-    "items": "LUZ LÃSER RGB",
+    "items": "LUZ LÁSER RGB",
     "proveedor": "YIYING",
     "unidad": "UNIT",
     "bodega": "Miami",
@@ -11266,7 +11266,7 @@
   {
     "id": 446,
     "referencia": "JC-JGD-4T-QC",
-    "items": "LUZ LÃSER RGB",
+    "items": "LUZ LÁSER RGB",
     "proveedor": "YIYING",
     "unidad": "UNIT",
     "bodega": "Dumbo",
@@ -13576,7 +13576,7 @@
   {
     "id": 236,
     "referencia": "JC-JGD-4T-QC",
-    "items": "LUZ LÃSER RGB",
+    "items": "LUZ LÁSER RGB",
     "proveedor": "YIYING",
     "unidad": "UNIT",
     "bodega": "Long island",
@@ -14031,7 +14031,7 @@
     "proveedor": "ZXCH",
     "unidad": "UNIT",
     "bodega": "Caldas",
-    "qty": 8,
+    "qty": 6,
     "bl": "CALDAS",
     "created_at": "2026-04-24T19:09:03.109Z"
   },
@@ -14801,7 +14801,7 @@
     "proveedor": "BODYTONE",
     "unidad": "UNIT",
     "bodega": "Caldas",
-    "qty": 4,
+    "qty": 1,
     "bl": "CALDAS",
     "created_at": "2026-04-24T19:09:03.109Z"
   },
@@ -14845,7 +14845,7 @@
     "proveedor": "IMPULSE",
     "unidad": "UNIT",
     "bodega": "Caldas",
-    "qty": 3,
+    "qty": 1,
     "bl": "CALDAS",
     "created_at": "2026-04-24T19:09:03.109Z"
   },
@@ -15886,7 +15886,7 @@
   {
     "id": 26,
     "referencia": "JC-JGD-4T-QC",
-    "items": "LUZ LÃSER RGB",
+    "items": "LUZ LÁSER RGB",
     "proveedor": "YIYING",
     "unidad": "UNIT",
     "bodega": "Caldas",
