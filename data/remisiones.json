@@ -1,1 +1,28 @@
-
+[
+  {
+    "id": 1,
+    "bodega": "Caldas",
+    "usuario": "juan",
+    "fecha": "2026-05-11",
+    "tipo": "hola",
+    "items": [
+      {
+        "referencia": "23009",
+        "nombre": "PISO PORCELANATO HEXAGONAL",
+        "peso_kg": 4,
+        "paquete": "f",
+        "cantidad": 100
+      }
+    ],
+    "created_at": "2026-05-11T17:22:40.220Z",
+    "consumedFrom": [
+      {
+        "recordId": 9,
+        "bl": "CALDAS",
+        "referencia": "23009",
+        "qty": 100
+      }
+    ],
+    "stockConsumed": true
+  }
+]
